@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>单用户实时视图 · 城市换电</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+         background: #0f172a; color: #e2e8f0; font-size: 14px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 16px 14px 60px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  header h1 { font-size: 18px; margin: 0; color: #fff; }
+  .live { font-size: 12px; color: #22c55e; border: 1px solid #22c55e55; padding: 2px 8px; border-radius: 999px; }
+  .search { display: flex; gap: 8px; flex-wrap: wrap; background: #1e293b; padding: 10px; border-radius: 12px; margin-bottom: 16px; }
+  .search input, .search select { background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+         padding: 9px 11px; border-radius: 8px; font-size: 14px; }
+  .search input { flex: 1; min-width: 200px; }
+  .search button { background: #2f6fed; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+  .search button:active { transform: scale(.97); }
+  .state { padding: 26px; text-align: center; color: #94a3b8; border: 1px dashed #334155; border-radius: 12px; }
+  .err { color: #f87171; }
+  .card { background: #1e293b; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: #93c5fd; display: flex; align-items: center; gap: 8px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .stat { background: #0f172a; border-radius: 10px; padding: 12px; }
+  .stat .v { font-size: 20px; font-weight: 800; color: #fff; }
+  .stat .l { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+  .kv { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .kv div { font-size: 13px; }
+  .kv b { color: #cbd5e1; font-weight: 600; }
+  .avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: #334155; }
+  .top { display: flex; gap: 14px; align-items: center; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .g { background: #22c55e22; color: #22c55e; } .r { background: #ef444422; color: #ef4444; }
+  .y { background: #f59e0b22; color: #f59e0b; } .n { background: #47556955; color: #94a3b8; }
+  /* 仓体格 */
+  .cab-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .cab-head select { background: #0f172a; color: #e2e8f0; border: 1px solid #334155; padding: 7px 9px; border-radius: 8px; }
+  .cab-img { width: 110px; height: 78px; object-fit: cover; border-radius: 8px; background: #334155; }
+  .cells { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cell { width: 40px; height: 40px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 700; color: #0f172a; position: relative; }
+  .cell.green { background: #22c55e; } .cell.red { background: #ef4444; color: #fff; }
+  .cell.dark { background: #334155; color: #64748b; } .cell.fault { background: #f59e0b; }
+  .cell .lk { position: absolute; top: -4px; right: -4px; font-size: 10px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0; font-size: 12px; color: #cbd5e1; }
+  .dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .bar24 { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+  .bar24 div { flex: 1; background: #2f6fed; border-radius: 2px 2px 0 0; min-height: 2px; position: relative; }
+  .bar24 div span { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font-size: 9px; color: #64748b; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #33415555; }
+  th { color: #94a3b8; font-weight: 600; }
+  .rec { display: flex; align-items: center; gap: 12px; padding: 11px; background: #0f172a; border-radius: 10px; margin-bottom: 8px; }
+  .rec .dm { font-size: 18px; font-weight: 800; color: #22c55e; min-width: 78px; }
+  .rec .info { flex: 1; }
+  .rec .nav { background: #2f6fed; color: #fff; text-decoration: none; padding: 8px 12px; border-radius: 8px; font-size: 13px; white-space: nowrap; }
+  .warn { background: #ef444422; border: 1px solid #ef444455; color: #fca5a5; padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; }
+  .muted { color: #64748b; font-size: 12px; }
+  a.link { color: #93c5fd; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🔋 单用户实时视图</h1>
+    <span class="live">● LIVE 直连生产库</span>
+    <span class="muted" id="src"></span>
+  </header>
+
+  <div class="search">
+    <input id="key" placeholder="输入 手机号 / 协议ID / 用户ID" autocomplete="off">
+    <select id="by">
+      <option value="phone">按手机号</option>
+      <option value="agreement">按协议ID</option>
+      <option value="uid">按用户ID</option>
+    </select>
+    <button id="go">实时查询</button>
+  </div>
+
+  <div id="out"><div class="state">输入用户标识，点击「实时查询」即可拉取该消费者全量实时数据（无 5000 上限）。</div></div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = (k, by) => '/api/user/realtime?key=' + encodeURIComponent(k) + '&by=' + by;
+
+function imgUrl(v){
+  if(!v) return '';
+  let arr = [];
+  try { const p = JSON.parse(v); if(Array.isArray(p)) arr = p; } catch(e){}
+  if(!arr.length) arr = ('' + v).split(/[,;]/);
+  return (arr.find(x => x && /^https?:\/\//.test(x.trim())) || '').trim();
+}
+function fmtMs(ms){ if(!ms) return '—'; try { return new Date(Number(ms)).toLocaleString('zh-CN'); } catch(e){ return ''+ms; } }
+function fmtDate(ms){ if(!ms) return '—'; try { return new Date(Number(ms)).toLocaleDateString('zh-CN'); } catch(e){ return ''+ms; } }
+function esc(s){ return (''+ (s==null?'':s)).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function setState(html){ $('#out').innerHTML = '<div class="state">' + html + '</div>'; }
+
+function render(d){
+  const u = d.user || {};
+  const av = imgUrl(u.avatar);
+  const hab = d.habit || {};
+  const total = Number(hab.total||0), ok = Number(hab.ok||0), fail = Number(hab.fail||0);
+  const rate = total ? Math.round(ok/total*100) : 0;
+  const avgKm = hab.avg_mileage ? (Number(hab.avg_mileage)/1000).toFixed(1) : '0';
+
+  let html = '';
+
+  // —— 个人信息 ——
+  html += '<div class="card"><div class="top">';
+  html += av ? '<img class="avatar" src="'+av+'">' : '<div class="avatar"></div>';
+  html += '<div style="flex:1"><div style="font-size:17px;font-weight:800;color:#fff">'+ esc(u.username||'未知用户') +
+          ' <span class="pill '+(u.user_status==='on'?'g':'r')+'">'+(u.user_status==='on'?'账号启用':'账号禁用')+'</span></div>';
+  html += '<div class="muted" style="margin-top:3px">📱 '+ esc(u.phone||'—') +' ｜ 🆔 用户ID '+ esc(u.id) +' ｜ 🌆 '+ esc(u.city||'—') +'</div></div></div>';
+  html += '<div class="kv" style="margin-top:12px">';
+  html += '<div><b>协议状态</b> <span class="pill '+(u.agreement_status==='on'?'g':'y')+'">'+ esc(u.agreement_status||'无') +'</span></div>';
+  html += '<div><b>协议ID</b> '+ esc(u.agreement_id||'—') +'</div>';
+  html += '<div><b>电池产品</b> '+ esc(u.battery_product||'—') +'</div>';
+  html += '<div><b>租金套餐</b> '+ esc(u.package_name||'—') +'</div>';
+  html += '<div><b>签约城市</b> '+ esc(u.sys_city_name||'—') +'</div>';
+  html += '<div><b>签约网点</b> '+ esc(u.sign_site_name||'—') +'</div>';
+  html += '<div><b>激活时间</b> '+ fmtDate(u.activation_time) +'</div>';
+  html += '<div><b>租金到期</b> '+ fmtDate(u.rent_expire_time) +'</div>';
+  html += '<div><b>押金(元)</b> '+ (u.deposit_fee? (Number(u.deposit_fee)/100).toFixed(2):'—') +'</div>';
+  html += '</div></div>';
+
+  // —— 换电习惯概览 ——
+  html += '<div class="card"><h2>📊 换电习惯概览</h2><div class="grid2">';
+  html += stat(total,'总换电订单'); html += stat(ok,'成功'); html += stat(fail,'失败');
+  html += stat(rate+'%','成功率'); html += stat(avgKm+'km','平均里程');
+  html += stat(fmtDate(hab.first_t)+'~'+fmtDate(hab.last_t),'活跃区间');
+  html += '</div>';
+  // 小时分布
+  const hd = d.hour_dist||[]; const maxh = Math.max(1,...hd);
+  html += '<div style="margin-top:14px"><div class="muted" style="margin-bottom:18px">换电时段分布（UTC+0 小时）</div><div class="bar24">';
+  for(let h=0;h<24;h++){ const v=hd[h]||0; const pct=Math.round(v/maxh*100);
+    html += '<div style="height:'+pct+'%" title="'+h+'时: '+v+'单"><span>'+(h%6===0?h:'')+'</span></div>'; }
+  html += '</div></div></div>';
+
+  // —— 常去网点 ——
+  if(d.freq_sites && d.freq_sites.length){
+    html += '<div class="card"><h2>📍 常去换电网点 TOP</h2><table><tr><th>网点</th><th>次数</th><th>成功</th><th>失败</th><th>最近</th></tr>';
+    d.freq_sites.forEach(s=>{ html += '<tr><td>'+ esc(s.site_name||'—') +'</td><td><b>'+ s.c +'</b></td><td class="g">'+ (s.ok||0) +'</td><td class="r">'+ (s.fail||0) +'</td><td class="muted">'+ fmtDate(s.last_t) +'</td></tr>'; });
+    html += '</table></div>';
+  }
+
+  // —— 换电柜仓体实时状态 ——
+  const cabs = [];
+  if(d.primary_cabinet) cabs.push(d.primary_cabinet);
+  (d.used_cabinets||[]).forEach(c=>{ if(!cabs.find(x=>x.cabinet_id===c.cabinet_id)) cabs.push(c); });
+  if(cabs.length){
+    html += '<div class="card"><h2>🔌 换电柜仓体实时状态</h2>';
+    html += '<div class="cab-head"><span class="muted">选择柜机：</span><select id="cabsel">';
+    cabs.forEach((c,i)=>{ html += '<option value="'+i+'">'+ esc(c.site_name||'柜机') +' · '+ esc(c.device_sn||c.cabinet_id) +'（用'+ (c.use_count||0) +'次）</option>'; });
+    html += '</select>';
+    const cc = cabs[0].cell_counts||{};
+    html += '<span class="muted">在线：<b style="color:'+(cabs[0].online_status==='online'?'#22c55e':'#ef4444')+'">'+ esc(cabs[0].online_status||'—') +'</b></span>';
+    html += '<span class="muted">满电 '+ (cc.green||0) +' ｜ 充电 '+ (cc.red||0) +' ｜ 空 '+ (cc.dark||0) +' ｜ 故障锁仓 '+ (cc.fault||0) +'</span>';
+    html += '</div>';
+    const img = imgUrl(cabs[0].site_images) || imgUrl(cabs[0].model_image);
+    html += '<div class="cab-head"><img class="cab-img" id="cabimg" src="'+img+'"><span id="cabmeta" class="muted"></span></div>';
+    html += '<div class="legend"><span><span class="dot" style="background:#22c55e"></span>有电池(满电)</span>'
+          + '<span><span class="dot" style="background:#ef4444"></span>充电中(未达满)</span>'
+          + '<span><span class="dot" style="background:#334155"></span>无电池(空仓)</span>'
+          + '<span><span class="dot" style="background:#f59e0b"></span>故障/锁仓</span></div>';
+    html += '<div class="cells" id="cells"></div>';
+    html += '<div class="muted" style="margin-top:8px">仓体实时数据来源：t_exchange_store（每次查询即时拉取，无缓存）</div>';
+    html += '</div>';
+    window.__cabs = cabs;
+  }
+
+  // —— 当前点位 + 附近推荐 ——
+  const cur = d.current_point;
+  html += '<div class="card"><h2>🧭 当前换电点位 & 附近可换电推荐</h2>';
+  if(d.last_order_failed){
+    html += '<div class="warn">⚠️ 最近一笔换电订单状态为 <b>失败</b>，已基于当前点位为你推荐附近有可用电池的点位：</div>';
+  }
+  if(cur){
+    html += '<div class="muted" style="margin-bottom:10px">当前点位坐标：'+ esc(cur[0]) +', '+ esc(cur[1]) +' ｜ 搜索半径：'+ (d.radius_m||5000) +'m</div>';
+  } else {
+    html += '<div class="muted" style="margin-bottom:10px">未获取到当前换电点位（该用户暂无换电记录），无法计算附近推荐。</div>';
+  }
+  if(d.recommend && d.recommend.length){
+    d.recommend.forEach(r=>{
+      const img = imgUrl(r.site_images);
+      html += '<div class="rec"><div class="dm">'+ (r.distance_m>=1000? (r.distance_m/1000).toFixed(1)+'km' : r.distance_m+'m') +'</div>';
+      html += '<div class="info"><div style="font-weight:700;color:#fff">'+ esc(r.site_name||'换电柜') +' <span class="pill g">可用电池 '+ (r.avail||0) +'</span>'+(r.fault?(' <span class="pill y">故障 '+r.fault+'</span>'):'')+'</div>';
+      html += '<div class="muted">'+ esc(r.address||'') +' ｜ SN '+ esc(r.device_sn||'') +'</div></div>';
+      html += '<a class="nav" href="'+ esc(r.nav_url) +'" target="_blank">导航</a></div>';
+    });
+  } else if(cur){
+    html += '<div class="state" style="border:none;padding:14px">半径内暂无检测到「有可用电池」的柜机，可尝试调大半径（URL 加 &radius=8000）。</div>';
+  }
+  html += '</div>';
+
+  // —— 最近订单 ——
+  if(d.recent_orders && d.recent_orders.length){
+    html += '<div class="card"><h2>🧾 最近换电订单</h2><table><tr><th>时间</th><th>网点</th><th>取电柜</th><th>取电电量</th><th>里程</th><th>状态</th></tr>';
+    d.recent_orders.forEach(o=>{
+      const st = o.order_status==='success'?'g':(o.order_status==='fail'?'r':'n');
+      html += '<tr><td class="muted">'+ fmtDate(o.create_time) +'</td><td>'+ esc(o.site_name||'—') +'</td><td>'+ esc(o.take_exchange_sn||'—') +'</td>'
+            + '<td>'+ (o.take_battery_power!=null?o.take_battery_power+'%':'—') +'</td><td>'+ (o.mileage? (Number(o.mileage)/1000).toFixed(1)+'km':'—') +'</td>'
+            + '<td><span class="pill '+st+'">'+ esc(o.order_status||'—') +'</span></td></tr>';
+    });
+    html += '</table></div>';
+  }
+
+  $('#out').innerHTML = html;
+  if(window.__cabs && window.__cabs.length){
+    renderCells(0);
+    const sel = document.getElementById('cabsel');
+    if(sel) sel.addEventListener('change', e=>renderCells(+e.target.value));
+  }
+  $('#src').textContent = 'source: ' + (d.source||'') + (d._note?(' · '+d._note.slice(0,40)+'…'):'');
+}
+function stat(v,l){ return '<div class="stat"><div class="v">'+ esc(v) +'</div><div class="l">'+ l +'</div></div>'; }
+
+function renderCells(i){
+  const c = window.__cabs && window.__cabs[i]; if(!c) return;
+  const meta = document.getElementById('cabmeta');
+  if(meta) meta.innerHTML = 'SN:'+esc(c.device_sn||'')+' ｜ 网点:'+esc(c.site_name||'')+' ｜ 地址:'+esc(c.site_address||'')+' ｜ 上报:'+fmtDate(c.last_upload_time);
+  const img = imgUrl(c.site_images) || imgUrl(c.model_image);
+  const im = document.getElementById('cabimg'); if(im) im.src = img;
+  const box = document.getElementById('cells'); if(!box) return;
+  box.innerHTML = '';
+  (c.cells||[]).forEach(x=>{
+    const d = document.createElement('div'); d.className = 'cell ' + x.light;
+    d.textContent = x.number;
+    if(x.light === 'fault'){ const l = document.createElement('span'); l.className='lk'; l.textContent='🔒'; d.appendChild(l); }
+    d.title = '仓位'+x.number+'｜状态:'+x.status+(x.battery_sn?'｜电池:'+x.battery_sn:'')+(x.error?'｜'+x.error:'');
+    box.appendChild(d);
+  });
+}
+
+async function query(){
+  const k = $('#key').value.trim(); const by = $('#by').value;
+  if(!k){ setState('请输入用户标识'); return; }
+  setState('⏳ 正在直连生产库查询「'+esc(k)+'」的实时数据…');
+  try{
+    const r = await fetch(api(k,by), {credentials:'same-origin'});
+    if(r.status===401){ setState('<span class="err">未登录或登录已过期，请先在看板登录后重试。</span>'); return; }
+    if(r.status===404){ setState('<span class="err">未找到该用户，请检查手机号/协议ID/用户ID与 by 类型是否匹配。</span>'); return; }
+    const d = await r.json();
+    if(d.error){ setState('<span class="err">查询失败：'+esc(d.error)+'</span>'); return; }
+    render(d);
+    history.replaceState(null,'','/user?key='+encodeURIComponent(k)+'&by='+by);
+  }catch(e){ setState('<span class="err">请求异常：'+esc(e.message)+'</span>'); }
+}
+
+$('#go').addEventListener('click', query);
+$('#key').addEventListener('keydown', e=>{ if(e.key==='Enter') query(); });
+// 自动加载 URL 参数
+(function(){ const p = new URLSearchParams(location.search); const k=p.get('key'); const by=p.get('by');
+  if(k){ $('#key').value=k; if(by) $('#by').value=by; query(); } })();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "host": "YOUR_ADB_HOST.aliyuncs.com",
+  "port": 3306,
+  "user": "citybike_pro",
+  "password":"***",
+  "database": "sharing-citybike-pro",
+  "read_timeout": 600,
+  "charset": "utf8mb4"
+}

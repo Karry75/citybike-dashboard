@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>单网点实时视图 · 城市换电</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+         background: #0f172a; color: #e2e8f0; font-size: 14px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 16px 14px 60px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  header h1 { font-size: 18px; margin: 0; color: #fff; }
+  .live { font-size: 12px; color: #22c55e; border: 1px solid #22c55e55; padding: 2px 8px; border-radius: 999px; }
+  .search { display: flex; gap: 8px; flex-wrap: wrap; background: #1e293b; padding: 10px; border-radius: 12px; margin-bottom: 16px; }
+  .search input, .search select { background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+         padding: 9px 11px; border-radius: 8px; font-size: 14px; }
+  .search input.k { flex: 1; min-width: 200px; }
+  .search input.sm { width: 150px; }
+  .search button { background: #2f6fed; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+  .search button:active { transform: scale(.97); }
+  .state { padding: 26px; text-align: center; color: #94a3b8; border: 1px dashed #334155; border-radius: 12px; }
+  .err { color: #f87171; }
+  .card { background: #1e293b; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: #93c5fd; display: flex; align-items: center; gap: 8px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .stat { background: #0f172a; border-radius: 10px; padding: 12px; }
+  .stat .v { font-size: 20px; font-weight: 800; color: #fff; }
+  .stat .l { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+  .kv { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .kv div { font-size: 13px; }
+  .kv b { color: #cbd5e1; font-weight: 600; }
+  .top { display: flex; gap: 14px; align-items: center; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .g { background: #22c55e22; color: #22c55e; } .r { background: #ef444422; color: #ef4444; }
+  .y { background: #f59e0b22; color: #f59e0b; } .n { background: #47556955; color: #94a3b8; }
+  .logo { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; background: #334155; }
+  .muted { color: #64748b; font-size: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #0f172a; border: 1px solid #33415555; border-radius: 8px; padding: 5px 9px; font-size: 12.5px; color: #cbd5e1; }
+  .chip b { color: #93c5fd; font-weight: 600; }
+  .todo { background: #f59e0b14; border: 1px dashed #f59e0b55; color: #fcd34d; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .warn { background: #ef444422; border: 1px solid #ef444455; color: #fca5a5; padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; line-height: 1.7; }
+  .warn b { color: #fecaca; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #33415555; }
+  th { color: #94a3b8; font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  a.link { color: #93c5fd; }
+  .sec { color: #94a3b8; font-size: 12px; font-weight: 600; margin: 4px 0 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🏬 单网点实时视图</h1>
+    <span class="live">● LIVE 直连生产库</span>
+    <span class="muted" id="src"></span>
+  </header>
+
+  <div class="search">
+    <input id="key" class="k" placeholder="输入 网点ID 或 网点名称" autocomplete="off">
+    <select id="by">
+      <option value="name">按名称</option>
+      <option value="id">按ID</option>
+    </select>
+    <input id="bp" class="sm" placeholder="电池产品ID(可选)">
+    <input id="mer" class="sm" placeholder="商户ID/名称(可选)">
+    <button id="go">实时查询</button>
+  </div>
+
+  <div id="out"><div class="state">输入网点标识，点击「实时查询」即可拉取该网点全量实时数据（无 5000 上限）。</div></div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = (k, by, bp, mer) => '/api/site/realtime?key=' + encodeURIComponent(k) + '&by=' + by
+  + (bp ? '&battery_product=' + encodeURIComponent(bp) : '')
+  + (mer ? '&merchant=' + encodeURIComponent(mer) : '');
+
+function imgUrl(v){
+  if(!v) return '';
+  let arr = [];
+  try { const p = JSON.parse(v); if(Array.isArray(p)) arr = p; } catch(e){}
+  if(!arr.length) arr = ('' + v).split(/[,;]/);
+  return (arr.find(x => x && /^https?:\/\//.test(x.trim())) || '').trim();
+}
+function fmtMs(ms){ if(!ms) return '—'; try { return new Date(Number(ms)).toLocaleString('zh-CN'); } catch(e){ return ''+ms; } }
+function fmtDate(ms){ if(!ms) return '—'; try { return new Date(Number(ms)).toLocaleDateString('zh-CN'); } catch(e){ return ''+ms; } }
+function esc(s){ return (''+ (s==null?'':s)).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function setState(html){ $('#out').innerHTML = '<div class="state">' + html + '</div>'; }
+function stat(v,l){ return '<div class="stat"><div class="v">'+ esc(v) +'</div><div class="l">'+ l +'</div></div>'; }
+function row(l,v){ return '<div><b>'+esc(l)+'</b> '+ (v==null||v===''?'<span class="muted">—</span>':esc(v)) +'</div>'; }
+
+function render(d){
+  const s = d.site || {};
+  const logo = imgUrl(s.logo) || imgUrl(s.images);
+  const st = s.site_status;
+  const stCls = st==='已开业'||st==='open'||st==='正常' ? 'g' : (st==='已关闭'||st==='closed'?'r':'y');
+
+  let html = '';
+
+  // 待补提示
+  if(d.pending && d.pending.length){
+    html += '<div class="warn"><b>⚠️ 本期待补字段（分散在流水表，未编造）：</b><br>' + d.pending.map(p=>'• '+esc(p)).join('<br>') + '</div>';
+  }
+
+  // —— 网点基本信息 ——
+  html += '<div class="card"><div class="top">';
+  html += logo ? '<img class="logo" src="'+logo+'">' : '<div class="logo"></div>';
+  html += '<div style="flex:1"><div style="font-size:17px;font-weight:800;color:#fff">'+ esc(s.name||'未命名网点') +
+          ' <span class="pill '+(stCls)+'">'+ esc(st||'未知状态') +'</span></div>';
+  html += '<div class="muted" style="margin-top:3px">🆔 网点ID '+ esc(s.id) +' ｜ 🔋 电池产品ID '+ esc(s.battery_product_id||'—') +'</div></div></div>';
+  html += '<div class="kv" style="margin-top:12px">';
+  html += row('创建时间', fmtDate(s.create_time));
+  html += row('开业时间', fmtDate(s.start_open_time));
+  html += row('关闭时间', fmtDate(s.close_time));
+  html += '</div>';
+  html += '<div class="kv" style="margin-top:10px">';
+  html += row('商户ID#名称', (s.merchant_id||'—') + (s.merchant_name?' # '+s.merchant_name:''));
+  html += row('商户手机号', s.merchant_phone);
+  html += row('业务员ID#名称', (s.business_id||'—') + (s.business_name?' # '+s.business_name:''));
+  html += '<div><b>导购ID#名称</b> <span class="todo">待补</span></div>';
+  html += row('创客ID#名称', (s.store_manager_maker_id||'—') + (s.store_manager_name?' # '+s.store_manager_name:''));
+  html += row('创客手机号', s.store_manager_tel);
+  html += '</div></div>';
+
+  // —— 网点设备基础信息 ——
+  const cabs = d.cabinets||[];
+  const bats = d.battery_sns||[];
+  const hist = d.historical_cabinets||[];
+  html += '<div class="card"><h2>🔌 网点设备基础信息</h2>';
+  html += '<div class="sec">换电柜 SN（当前绑定 '+ cabs.length +' 台）</div><div class="chips">';
+  html += cabs.length ? cabs.map(c=>'<span class="chip"><b>'+esc(c.device_sn||'—')+'</b> '+(c.online==='online'?'🟢':'🔴')+'</span>').join('') : '<span class="muted">（无）</span>';
+  html += '</div>';
+  html += '<div class="sec" style="margin-top:10px">柜内电池 SN（'+ bats.length +' 条）</div>';
+  html += '<div class="chips">' + (bats.length ? bats.slice(0,60).map(b=>'<span class="chip">'+esc(b)+'</span>').join('') + (bats.length>60?'<span class="muted">… 仅显示前60</span>':'') : '<span class="muted">（无）</span>') + '</div>';
+  html += '<div class="sec" style="margin-top:10px">历史换电柜（曾绑定已解绑 '+ hist.length +' 台）</div><div class="chips">';
+  html += hist.length ? hist.map(h=>'<span class="chip">'+esc(h)+'</span>').join('') : '<span class="muted">（无）</span>';
+  html += '</div></div>';
+
+  // —— 网点经营设置 ——
+  const prof = d.profit_config||[];
+  html += '<div class="card"><h2>⚙️ 网点经营设置</h2><div class="kv">';
+  html += '<div><b>网点电费单价</b> <span class="todo">待补</span></div>';
+  html += row('独立电表', (s.alone_meter_status||'—') + (s.alone_meter_number?' # '+s.alone_meter_number:''));
+  html += row('结算方式', (s.electric_settle_way||'—') + (s.electric_settle_cycle?' / '+s.electric_settle_cycle:''));
+  html += '</div>';
+  html += '<div class="sec" style="margin-top:10px">商户分成费用（t_profit_config）</div><div class="chips">';
+  html += prof.length ? prof.map(p=>'<span class="chip">费用ID <b>'+esc(p.id)+'</b> ｜ 分成金额(原始值·单位待确认) '+ (p.profit_fee!=null? esc(p.profit_fee):'—') + (p.is_follow_system!=null?(' ｜ 跟随系统:'+(p.is_follow_system?'是':'否')):'') +'</span>').join('') : '<span class="muted">（无配置）</span>';
+  html += '</div>';
+  html += '<div class="kv" style="margin-top:10px">';
+  html += '<div><b>商户分成比例 / 各项累计 / 取消</b> <span class="todo">待补</span></div>';
+  html += '<div><b>导购分成费用/比例/累计/取消</b> <span class="todo">待补</span></div>';
+  html += '<div><b>网点创客余额</b> <span class="todo">待补</span></div>';
+  html += '<div><b>已提现金额</b> <span class="todo">待补</span></div>';
+  html += '</div></div>';
+
+  // —— 网点销售信息（按套餐） ——
+  const sales = d.sales_by_package||[];
+  html += '<div class="card"><h2>📈 网点销售信息（按套餐销量，success 订单）</h2>';
+  if(sales.length){
+    html += '<table><tr><th>套餐</th><th class="num">当天</th><th class="num">近3天</th><th class="num">近7天</th><th class="num">近30天</th><th class="num">累计</th></tr>';
+    sales.forEach(r=>{
+      html += '<tr><td>'+ esc(r.pkg||'未指定套餐') +'</td>'
+        + '<td class="num">'+ (r.d0||0) +'</td><td class="num">'+ (r.d3||0) +'</td>'
+        + '<td class="num">'+ (r.d7||0) +'</td><td class="num">'+ (r.d30||0) +'</td>'
+        + '<td class="num"><b>'+ (r.total||0) +'</b></td></tr>';
+    });
+    html += '</table>';
+  } else {
+    html += '<div class="state" style="border:none;padding:14px">该网点暂无 success 换电订单（或订单未落 user_package_id）。</div>';
+  }
+  html += '</div>';
+
+  $('#out').innerHTML = html;
+  $('#src').textContent = 'source: ' + (d.source||'') + (d._note?(' · '+d._note.slice(0,30)+'…'):'');
+}
+
+async function query(){
+  const k = $('#key').value.trim();
+  const by = $('#by').value;
+  const bp = $('#bp').value.trim();
+  const mer = $('#mer').value.trim();
+  if(!k){ setState('请输入网点标识'); return; }
+  setState('⏳ 正在直连生产库查询「'+esc(k)+'」的实时数据…');
+  try{
+    const r = await fetch(api(k,by,bp,mer), {credentials:'same-origin'});
+    if(r.status===401){ setState('<span class="err">未登录或登录已过期，请先在看板登录后重试。</span>'); return; }
+    if(r.status===404){ setState('<span class="err">未找到该网点，请检查 网点ID/名称 与 by 类型是否匹配。</span>'); return; }
+    if(r.status===400){ const e = await r.json(); setState('<span class="err">参数错误：'+esc(e.error||'')+'</span>'); return; }
+    const d = await r.json();
+    if(d.error){ setState('<span class="err">查询失败：'+esc(d.error)+'</span>'); return; }
+    render(d);
+    history.replaceState(null,'','/site?key='+encodeURIComponent(k)+'&by='+by+(bp?'&battery_product='+encodeURIComponent(bp):'')+(mer?'&merchant='+encodeURIComponent(mer):''));
+  }catch(e){ setState('<span class="err">请求异常：'+esc(e.message)+'</span>'); }
+}
+
+$('#go').addEventListener('click', query);
+$('#key').addEventListener('keydown', e=>{ if(e.key==='Enter') query(); });
+(function(){ const p = new URLSearchParams(location.search); const k=p.get('key'); if(k){ $('#key').value=k; const by=p.get('by'); if(by) $('#by').value=by; const bp=p.get('battery_product'); if(bp) $('#bp').value=bp; const mer=p.get('merchant'); if(mer) $('#mer').value=mer; query(); } })();
+</script>
+</body>
+</html>
