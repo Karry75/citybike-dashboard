@@ -3839,7 +3839,7 @@ function drawSales(f, rows, filtered){ rows=rows||[];
     catChart('s-promo',rows,'promoter',null,'签约量',true,k=>{state.sales=state.sales||{};state.sales.promoter=k;buildFilterBar('sales');applyFilters('sales');});
   } else {
     bar('s-site30',(S.site_sales_30d||[]).map(d=>d.site+'（'+(d.city||'')+'）'),(S.site_sales_30d||[]).map(d=>d.count),'签约量',true, i=>{const d=S.site_sales_30d[i];navigate('site',{search:d.site, city:d.city});});
-    const promoSrc=(S.promoter_rank&&S.promoter_rank.length)?S.promoter_rank:(DATA.overview.promoter_rank||[]);
+    const promoSrc=(S.promoter_rank&&S.promoter_rank.length)?S.promoter_rank:(((DATA.overview||{}).promoter_rank)||[]);
     bar('s-promo',promoSrc.map(d=>shortCity(d.city||'')+' / '+(d.promoter||'—')),promoSrc.map(d=>d.count),'签约量',true, i=>{const d=promoSrc[i];state.sales=state.sales||{};state.sales.promoter=d.promoter;state.sales.city=d.city;buildFilterBar('sales');applyFilters('sales');});
   }
 }
