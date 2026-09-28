@@ -2617,7 +2617,7 @@ h3 .cal-ico{margin-left:8px;transform:translateY(-1px)}
         <div class="tbl-wrap"><table id="an-agy-tbl"><thead></thead><tbody></tbody></table></div>
       </div>
 
-      <div class="note">口径说明（全量聚合，来源表）：① 留存/复购/产能/ARPU 来自 t_exchange_order（1100万行，consume_user_id 为换电消费用户）与每日统计表 t_statistics_daily_exchange_order（423行）；复购率 = 订单≥2次用户 / 有订单用户。② 欠租来自 t_exchange_agreement（status='owe_rent'）与违约金记录 t_user_exchange_rent_violated_log（is_pay=1）；违约金金额单位"分"，已÷100。③ 电池周转来自 t_battery_circulate_log；离线来自 t_monitor_ex_event_battery；回收表 t_recover_battery 当前记录较少，报废数以该表为准。④ 产能 = 日均成功订单 /（日均活跃柜数）。⑤ 漏斗：押金用户=t_user_exchange_deposit 去重用户；签约用户=t_exchange_agreement 去重用户（免押用户不缴押金，故非严格嵌套）；租期卡=t_user_exchange_rent 在用/已用。⑥ 城市对标按 sys_city_name 聚合。⑦ 客诉来自 t_exchange_order_complaint；客诉率 = 客诉数 / 成功订单数。⑧ ARPU = 成功订单实付总额 / 去重消费用户；LTV 待建模。⑨ 套餐收入来自财务模块拆分（租期卡/电量卡/押金卡）。⑩ 代理商来自 t_exchange_order.agency_name 聚合。</div>
+      <div class="note">口径说明（全量聚合，来源表）：① 留存/复购/产能/ARPU 来自 t_exchange_order（1100万行，consume_user_id 为换电消费用户）与每日统计表 t_statistics_daily_exchange_order（423行）；复购率 = 订单≥2次用户 / 有订单用户。② 欠租来自 t_exchange_agreement（status='owe_rent'）与违约金记录 t_user_exchange_rent_violated_log（is_pay=1）；违约金金额单位"分"，已÷100。③ 电池周转来自 t_battery_circulate_log；离线来自 t_monitor_ex_event_battery；回收表 t_recover_battery 当前记录较少，报废数以该表为准。④ 产能 = 日均成功订单 /（日均活跃柜数）。⑤ 漏斗：押金用户=t_user_exchange_deposit 去重用户；签约用户=t_exchange_agreement 去重用户（免押用户不缴押金，故非严格嵌套）；租期卡=t_user_exchange_rent 在用/已用。⑥ 城市对标按 t_city_name 聚合。⑦ 客诉来自 t_exchange_order_complaint；客诉率 = 客诉数 / 成功订单数。⑧ ARPU = 成功订单实付总额 / 去重消费用户；LTV 待建模。⑨ 套餐收入来自财务模块拆分（租期卡/电量卡/押金卡）。⑩ 代理商来自 t_exchange_order.agency_name 聚合。</div>
     </div>
   </div>
 
@@ -2939,7 +2939,7 @@ const CALIBER = {
   'ov-bat_online':{t:'电池在线',src:'t_battery',f:"online=1 计数"},
   'ov-bat_offline':{t:'电池离线',src:'t_battery',f:"online=0 计数"},
   'u-status':{t:'协议状态分布',src:'t_exchange_agreement',f:'GROUP BY status'},
-  'u-city':{t:'城市换电次数排行',src:'t_exchange_order',f:"GROUP BY sys_city_id COUNT(*) WHERE order_status='success' LIMIT 30",n:'城市展示为简化名(去省，如"浙江省杭州市"→"杭州市")。'},
+  'u-city':{t:'城市换电次数排行',src:'t_exchange_order',f:"GROUP BY t_city_id COUNT(*) WHERE order_status='success' LIMIT 30",n:'城市展示为简化名(去省，如"浙江省杭州市"→"杭州市")。'},
   'u-top50':{t:'用户价值Top50',src:'t_exchange_order JOIN t_user',f:'GROUP BY 用户 SUM(real_pay_price) LIMIT 50',n:'按实付金额排序。'},
   's-site30':{t:'网点近一月销售排行',src:'t_exchange_agreement',f:"GROUP BY site WHERE create_time≥NOW-30天 LIMIT 10"},
   's-promo':{t:'签约网点业务员销冠',src:'t_exchange_agreement',f:"GROUP BY 城市/签约网点业务员(sign_site_business_name) COUNT(*) LIMIT 10",n:'签约网点业务员 = t_exchange_agreement.sign_site_business_name，与网点板"网点当前业务员"(t_site.business_name) 为两个口径，均保留。'},
@@ -2987,7 +2987,7 @@ const CALIBER = {
   'an-ret-freq':{t:'复购频次分布',src:'t_exchange_order',f:'按订单数分桶：1次/2-5次/6-20次/20+次'},
   'an-dau':{t:'累计换电用户趋势',src:'t_statistics_daily_exchange_order',f:'取 total_user_count 按日',n:'为累计口径，非当日新增（DAU）。'},
   'an-ord-trend':{t:'订单/首充趋势',src:'t_statistics_daily_exchange_order',f:'success_count / first_take_count 按日'},
-  'an-owe-city':{t:'城市欠租分布',src:'t_exchange_agreement',f:"GROUP BY sys_city_name WHERE status='owe_rent' LIMIT 15"},
+  'an-owe-city':{t:'城市欠租分布',src:'t_exchange_agreement',f:"GROUP BY t_city_name WHERE status='owe_rent' LIMIT 15"},
   'an-owe-pen':{t:'违约金已收',src:'t_user_exchange_rent_violated_log',f:"SUM(pay_fee)/100 WHERE is_pay=1",n:'单值汇总。'},
   'an-bat-top':{t:'电池周转Top',src:'t_battery_circulate_log',f:'GROUP BY battery_device_id COUNT(*) LIMIT 12'},
   'an-cap-top':{t:'网点产能Top',src:'t_exchange_order',f:"GROUP BY site COUNT(*) WHERE order_status='success' LIMIT 15"},
@@ -7438,7 +7438,7 @@ function drawOpsDeviceHealth(f){
   bar('dh-bat-health',Object.keys(batCycleBins),Object.values(batCycleBins),'电池数量',true);
   // ── 城市离线率排行 Top15 ──
   var cityCabMap={}, cityBatMap={};
-  cab.forEach(function(r){ var c=r.city||r.sys_city_name||'未知'; if(!cityCabMap[c])cityCabMap[c]={total:1,offline:(r.is_online!=='online'&&r.is_online!==1&&r.is_online!=='1')?1:0}; else{ cityCabMap[c].total++; if(r.is_online!=='online'&&r.is_online!==1&&r.is_online!=='1')cityCabMap[c].offline++; }});
+  cab.forEach(function(r){ var c=r.city||r.t_city_name||'未知'; if(!cityCabMap[c])cityCabMap[c]={total:1,offline:(r.is_online!=='online'&&r.is_online!==1&&r.is_online!=='1')?1:0}; else{ cityCabMap[c].total++; if(r.is_online!=='online'&&r.is_online!==1&&r.is_online!=='1')cityCabMap[c].offline++; }});
   bat.forEach(function(r){ var c=r.city||'未知'; if(!cityBatMap[c])cityBatMap[c]={total:1,offline:(r.online!=='online'&&r.online!==1&&r.online!=='1')?1:0}; else{ cityBatMap[c].total++; if(r.online!=='online'&&r.online!==1&&r.online!=='1')cityBatMap[c].offline++; }});
   var cityOffRate=Object.keys(cityCabMap).map(function(c){ var d=cityCabMap[c]; return {city:c,total:d.total,offline:d.offline,rate:d.total?Math.round(d.offline/d.total*10000)/100:0}; }).sort(function(a,b){return b.rate-a.rate}).slice(0,15);
   var offEl=document.getElementById('dh-offline-city');
