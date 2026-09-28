@@ -9705,7 +9705,7 @@ function bootApp(){
   // 内联版 / DEMO 非 STRIP：DATA 已就绪 → 直接 boot
   // 后端 STRIP：const DATA={} 空对象，等 server 注入的 fetch 回调调 bootApp()
   var dataEmpty = (typeof window.DATA === 'undefined') || (window.DATA && Object.keys(window.DATA).length === 0);
-  if (window.__BACKEND && dataEmpty){
+  if (dataEmpty){   /* static/pages: wait until data ready */
     // 等待 server 注入的引导脚本：window.DATA=d; bootApp();
   } else {
     bootApp();
