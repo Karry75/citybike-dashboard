@@ -1,5 +1,18 @@
 # citybike 城市换电运营看板
 
+## 在线访问
+
+- 本站看板（在线）：https://karry75.github.io/citybike-dashboard/
+- 全部看板作品集（导航页）：https://karry75.github.io/dashboard-portal/
+
+## 技术速览
+
+- **形态**：单文件静态看板（HTML + JavaScript + ECharts），数据以离线快照形式随页面加载，纯前端渲染、无后端依赖。
+- **原理**：业务库（阿里云 AnalyticDB）→ Python 抽取/构建管线 → 脱敏聚合快照 → 静态页面；页面打开即渲染，支持按维度筛选与下钻。
+- **用途**：城市换电业务全景看板：用户、网点、设备、电池、财务、销售、套餐、优惠券、运维、风险预警等 10+ 板块 + 4 块运营大屏。
+- **脱敏**：公开发布版本已移除数据库连接信息、账号口令与个人敏感字段，仅保留聚合指标。
+
+
 城市共享单车 / 换电柜运营数据看板的前端 + 数据抽取构建管线源码。覆盖用户、网点、设备、电池、财务、销售、套餐、优惠券、运维、风险预警等 10+ 业务模块，以及 4 块运营指挥大屏。
 
 > 本仓库是**源码与离线 Demo**，不含任何业务数据与数据库凭据（见下方「安全说明」）。看板真实数据由阿里云 ADB（sharing-citybike-pro）抽取构建，已部署在 CloudStudio 公网，可在线访问。
@@ -21,7 +34,6 @@
 - 公网轻量版（手机/微信分享）：https://9ef21e3c09704152b131d3b411f909f4.bj10.agentos-app.net
 - 公网全量版（桌面）：https://e24a38f6d0d84dc58809dc4d0de69b6f.bj10.agentos-app.net
 - 换电订单明细 EXO 面板：https://ed14642625ff44d19e57bbbe26dc962a.bj9.agentos-app.net
-- 局域网（需同网段）：http://192.168.0.102:8097/  （账号 `138****5daa` / `admin888`）
 
 ## 本地运行
 
@@ -53,7 +65,6 @@ CB_PORT=8097 python scripts/server.py
 
 - ❌ **不入库**：`data/`（7.8GB 业务数据）、`config/backup_config.json`（数据库密码）、`server_users.json`、`users_db.json`、`.workbuddy/`、所有 `*.gz` 图片与压缩包。
 - ✅ 源码中若有内联密码，已脱敏为占位符。
-- Demo 登录 `admin888` 仅用于本地 / 内网演示，公网部署请改用强密码或移除登录入口。
 
 ## License
 
